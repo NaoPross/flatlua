@@ -3,7 +3,7 @@
 #include <sol/sol.hpp>
 #include <string.h>
 
-namespace flat::lua {
+namespace flat {
 
     class state;
 }
@@ -17,7 +17,7 @@ class flat::lua::state : private sol::state {
 
 public:
 
-    state();
+    state(flat::state&);
 
     /*
      * Binding blocks
