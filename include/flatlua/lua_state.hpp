@@ -3,9 +3,16 @@
 #include <sol/sol.hpp>
 #include <string.h>
 
+#include "flatland/core/task.hpp"
+#include "flatland/core/signal.hpp"
+
 namespace flat {
 
-    class state;
+    class state; // flatland state forward declaration
+
+    namespace lua {
+        class state;
+    }
 }
 
 class flat::lua::state : private sol::state {
@@ -38,7 +45,7 @@ public:
         auto result = sol::state::load(code);
 
         if (result) // if valid
-            result(args);
+            result(args...);
     }
 
     // load code given by an external file as a command
@@ -55,12 +62,15 @@ public:
     bool run_script(const std::string& path, Args... args)
     {
         auto it = scripts.find(path);
+        bool out(false);
 
         // TODO, handle exception
-        if (it != scripts.end())
-            auto result = (it.second)(args);
+        if (it != scripts.end()) {
+            auto result = ((*it).second)(args...);
+            out = result.valid();
+        }
 
-        return result.valid();
+        return out;
     }
 
     /*
@@ -68,7 +78,7 @@ public:
      */
 
     // run an arbitrary command
-    void exec(const std::string& cmd);
+    //void exec(std::string&& cmd);
     
     using sol::state::new_usertype;
 

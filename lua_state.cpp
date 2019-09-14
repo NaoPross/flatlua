@@ -1,5 +1,12 @@
-#include "luaint/lua_state.hpp"
-#include "flat/state.hpp"
+#include "flatlua/lua_state.hpp"
+#include "flatland/flatland.hpp"
+
+extern "C" {
+#include <SDL2/SDL_events.h>
+}
+
+#include "wsdl2/video.hpp"
+#include "wsdl2/event.hpp"
 
 using namespace flat::lua;
 
@@ -14,14 +21,14 @@ state::state(flat::state& engine)
 
     (*this)["tex_access"] = create_table_with(
             "static", wsdl2::texture::access::static_,
-            "streaming", wsdl2::texture::access::stream,
-            "target", wsdl2::texture::access::target,
+            "streaming", wsdl2::texture::access::streaming,
+            "target", wsdl2::texture::access::target
             );
 
     auto tex_t = new_usertype<wsdl2::texture>("texture");
 
     tex_t.set("access", sol::readonly(&wsdl2::texture::pixel_access));
-    tex_t.set("format", sol::readonly(&wsdl2::texture::pixel_format()));
+    tex_t.set("format", sol::readonly(&wsdl2::texture::pixel_format));
     tex_t.set("alpha", 
         static_cast<bool (wsdl2::texture::*)(std::uint8_t)>(&wsdl2::texture::alpha));
     tex_t.set("width", sol::readonly(&wsdl2::texture::width));
@@ -30,8 +37,8 @@ state::state(flat::state& engine)
     //tex_t.set("owner", &wsdl2::texture::owner);
     
     // TODO, inheritance problem
-    tex_t.set_function("lock", &wsdl2::streaming_texture::lock);
-    tex_t.set_function("unlock", &wsdl2::streaming_texture::unlock);
+    //tex_t.set_function("lock", &wsdl2::streaming_texture::lock);
+    //tex_t.set_function("unlock", &wsdl2::streaming_texture::unlock);
 
     /*
      * Window binding
@@ -52,9 +59,10 @@ state::state(flat::state& engine)
     auto scene_type = new_usertype<flat::scene>("scene", sol::constructors<flat::scene()>(),
                                                  "title", &flat::scene::title);
 
-    scene_type.set("load_texture", &flat::scene::load_texture);
-    scene_type.set("load_tileset", &flat::scene::load_tileset);
-    scene_type.set("load_sprite", &flat::scene::load_sprite);
+    // TODO, overload and template problem
+    //scene_type.set("load_texture", &flat::scene::load_texture);
+    //scene_type.set("load_tileset", &flat::scene::load_tileset);
+    //scene_type.set("load_sprite", &flat::scene::load_sprite);
 
     // bind to default state instance
     bind_scene_man(flat::state::get());
@@ -63,27 +71,28 @@ state::state(flat::state& engine)
      * Tasks, jobs, channels, signals interface
      */
 
-    using flat::core;
+    using namespace flat::core;
 
     // job binding
-    auto job_type = new_usertype<job>("job", sol::constructor<job()>);
+    auto job_type = new_usertype<job>("job", sol::constructors<job()>());
 
-    job_type.set("delegate_task", &job::delegate_task);
+    // TODO, overloading and template deduction problem
+    //job_type.set("delegate_task", &job::delegate_task);
     job_type.set("invoke_tasks", &job::invoke_tasks);
     // TODO, operator () overloading
 
     // task binding
     auto task_type = new_usertype<task>("task", 
-            sol::constructor<task(task::callback)>, // default priority
-            sol::constructor<task(task::callback, priority_t)>);
+            sol::constructors<task(task::callback)>(), // default priority
+            sol::constructors<task(task::callback, priority_t)>());
 
-    task_type.set("invoke", task::operator());
+    task_type.set("invoke", &task::operator());
     // TODO, operator () overloading
    
     // channel binding 
     auto channel_type = new_usertype<channel>("channel",
-            sol::constructor<channel(job&)>, // default priority
-            sol::constructor<channel(job&, priority_t)>);
+            sol::constructors<channel(job&)>(), // default priority
+            sol::constructors<channel(job&, priority_t)>());
 
     channel_type.set("emit", sol::overload(
                 &channel::emit<>,
@@ -115,7 +124,7 @@ state::state(flat::state& engine)
             "mouse", create_table_with(
                 "button", "connect_mouse_button",
                 "motion", "connect_mouse_motion",
-                "wheel", "connect_mouse_wheel",
+                "wheel", "connect_mouse_wheel"
                 ),
             "window", create_table_with(
                 "shown", "connect_window_shown",
@@ -135,7 +144,7 @@ state::state(flat::state& engine)
     channel_type.set((*this)["events.window.hidden"], &channel::connect<void, wsdl2::event::window::hidden>);
     channel_type.set((*this)["events.window.exposed"], &channel::connect<void, wsdl2::event::window::exposed>);
     channel_type.set((*this)["events.window.moved"], &channel::connect<void, wsdl2::event::window::moved>);
-    channel_type.set((*this)["events.window.resized"], &channel::connect<void, wsdl2::event::window::resized);
+    channel_type.set((*this)["events.window.resized"], &channel::connect<void, wsdl2::event::window::resized>);
 
     using namespace wsdl2::event;
 
@@ -216,7 +225,7 @@ state::state(flat::state& engine)
 
     // namespace mouse
     (*this)["mouse"] = create_table_with(
-            "button" = create_table_with(
+            "button", create_table_with(
                 "right", wsdl2::button::right,
                 "middle", wsdl2::button::middle,
                 "left", wsdl2::button::left, 
@@ -248,7 +257,7 @@ sol::load_result state::load_script(const std::string& cmd, const std::string& p
     auto result = this->load_file(path);
 
     if (result)
-        scripts.insert_or_assign(std::move(result));
+        scripts.insert({path, result});
 
     return result;
 }
@@ -259,7 +268,7 @@ sol::load_result state::load_code(const std::string& cmd, const std::string& cod
     auto result = this->load(code);
 
     if (result)
-        scripts.insert_or_assign(std::move(result));
+        scripts.insert({cmd, result});
 
     return result;
 }
@@ -272,7 +281,7 @@ void state::rm_cmd(const std::string& cmd)
         scripts.erase(it);
 }
 
-void exec(const std::string& cmd)
+/*void state::exec(std::string&& cmd)
 {
-    channels["cmd"].emit(cmd);
-}
+    channels["cmd"].emit(std::move(cmd));
+}*/

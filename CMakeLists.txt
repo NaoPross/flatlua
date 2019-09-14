@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(
-    luaint
+    flatlua
     VERSION 0.1 
     LANGUAGES CXX)
 
@@ -11,11 +11,11 @@ find_package(Flatland 0.1 REQUIRED)
 find_package(sol2 3.0 REQUIRED)
 find_package(Lua REQUIRED)
 
-add_library(luaint SHARED
+add_library(flatlua SHARED
      ${CMAKE_CURRENT_SOURCE_DIR}/lua_state.cpp
 )
  
-target_compile_options(luaint
+target_compile_options(flatlua
     PRIVATE 
         $<$<CXX_COMPILER_ID:GNU>:
             -fdiagnostics-color
@@ -29,19 +29,19 @@ target_compile_options(luaint
 )
 
 # setting up c++ standard 17
-target_compile_features(demo
+target_compile_features(flatlua
     PRIVATE
         cxx_std_17
 )
 
-target_link_libraries(luaint
+target_link_libraries(flatlua
     PRIVATE
         Flatland::Flatland
         sol2::sol2
         ${LUA_LIBRARIES}
 )
 
-target_include_directories(luaint
+target_include_directories(flatlua
     PUBLIC
         $<INSTALL_INTERFACE:include/>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
@@ -49,27 +49,27 @@ target_include_directories(luaint
         ${CMAKE_CURRENT_SOURCE_DIR}/
 )
 
-target_compile_definitions(luaint
+target_compile_definitions(flatlua
     PRIVATE
-        ASSETS_INSTALL_PREFIX="${CMAKE_INSTALL_DATADIR}/lauint/"
+        ASSETS_INSTALL_PREFIX="${CMAKE_INSTALL_DATADIR}/flatlua/"
 )
 
 # Install section
 # public headers
 install(
     FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/luaint/lua_scene.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/luaint/lua_sprite.hpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/luaint/lua_state.hpp
+        #${CMAKE_CURRENT_SOURCE_DIR}/include/flatlua/lua_scene.hpp
+        #${CMAKE_CURRENT_SOURCE_DIR}/include/flatlua/lua_sprite.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/flatlua/lua_state.hpp
 
     DESTINATION 
-        ${CMAKE_INSTALL_INCLUDEDIR}/luaint
+        ${CMAKE_INSTALL_INCLUDEDIR}/flatlua
 )
 
 # executable
 install(
-    TARGETS luaint
-    EXPORT luaint-targets
+    TARGETS flatlua
+    EXPORT flatlua-targets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
@@ -77,5 +77,5 @@ install(
 # assets
 install(
     DIRECTORY assets/
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/luaint
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/flatlua
 )

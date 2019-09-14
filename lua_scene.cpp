@@ -1,4 +1,4 @@
-#include "luaint/lua_scene.hpp"
+#include "lua_scene.hpp"
 #include "scene.hpp"
 
 using namespace flat;
