@@ -30,9 +30,6 @@ public:
      * Binding blocks
      */
 
-    // Flatland scene management, bind to variable instance
-    void bind_scene_man(flat::state&);
-
     /*
      * Script loading and running section
      */

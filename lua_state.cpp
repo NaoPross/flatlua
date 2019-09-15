@@ -248,18 +248,6 @@ state::state(flat::state& engine)
 
     // flatlan state setup
     (*this)["flat"] = &engine;
-
-    // bind to default state instance
-    //bind_scene_man(engine);
-}
-
-
-void state::bind_scene_man(flat::state& state)
-{
-    /*set_function("current_scene", &flat::state::current_scene, flat::state::get());
-    set_function("new_scene", &flat::state::new_scene, flat::state::get());
-    set_function("push_scene", &flat::state::push_scene, flat::state::get());
-    set_function("pop_scene", &flat::state::pop_scene, flat::state::get());*/
 }
 
 sol::load_result state::load_script(const std::string& cmd, const std::string& path)
