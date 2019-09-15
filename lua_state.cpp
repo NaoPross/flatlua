@@ -8,6 +8,9 @@ extern "C" {
 #include "wsdl2/video.hpp"
 #include "wsdl2/event.hpp"
 
+template<typename ...Args>
+using connect_t = std::shared_ptr<flat::core::listener<Args...>> (flat::core::channel::*)(void (*)(Args...));
+
 using namespace flat::lua;
 
 state::state(flat::state& engine)
@@ -57,21 +60,24 @@ state::state(flat::state& engine)
      */
 
     auto scene_type = new_usertype<flat::scene>("scene", sol::constructors<flat::scene()>(),
-                                                 "title", &flat::scene::title);
+            sol::base_classes, sol::bases<flat::trait::renderable, std::set<std::shared_ptr<flat::trait::renderable>>, flat::rendergroup>()
+            );
 
-    // TODO, overload and template problem
-    //scene_type.set("load_texture", &flat::scene::load_texture);
-    //scene_type.set("load_tileset", &flat::scene::load_tileset);
-    //scene_type.set("load_sprite", &flat::scene::load_sprite);
+    scene_type.set("title", &flat::scene::title);
 
-    // bind to default state instance
-    bind_scene_man(flat::state::get());
+    scene_type.set("load_texture", &flat::scene::load_texture);
+    // most complete version of load_texture
+    // TODO, tileset two constructors, grid != rectangle ??
+    scene_type.set("load_tileset_from_path", static_cast<std::shared_ptr<flat::tileset> (flat::scene::*)(const std::string&, std::size_t, std::size_t, std::size_t, std::size_t)>(&flat::scene::load_tileset));
+    scene_type.set("load_tileset_from_texture", static_cast<std::shared_ptr<flat::tileset> (flat::scene::*)(std::shared_ptr<wsdl2::texture>, std::size_t, std::size_t, std::size_t, std::size_t)>(&flat::scene::load_tileset));
 
-    /*
-     * Tasks, jobs, channels, signals interface
-     */
+    scene_type.set("load_sprite_from_path", static_cast<std::shared_ptr<flat::sprite> (flat::scene::*)(const std::string&, const mm::vec2<int>&, unsigned)>(&flat::scene::load_sprite));
+    scene_type.set("load_sprite_from_tileset", static_cast<std::shared_ptr<flat::sprite> (flat::scene::*)(std::shared_ptr<flat::tileset>, const mm::vec2<int>&, unsigned)>(&flat::scene::load_sprite));
 
     using namespace flat::core;
+
+    /*
+    //Tasks, jobs, channels, signals interface
 
     // job binding
     auto job_type = new_usertype<job>("job", sol::constructors<job()>());
@@ -83,30 +89,24 @@ state::state(flat::state& engine)
 
     // task binding
     auto task_type = new_usertype<task>("task", 
-            sol::constructors<task(task::callback)>(), // default priority
-            sol::constructors<task(task::callback, priority_t)>());
+            sol::constructors<task(task::callback),  // default priority
+                              task(task::callback, priority_t)>());
 
     task_type.set("invoke", &task::operator());
     // TODO, operator () overloading
    
     // channel binding 
     auto channel_type = new_usertype<channel>("channel",
-            sol::constructors<channel(job&)>(), // default priority
-            sol::constructors<channel(job&, priority_t)>());
-
-    channel_type.set("emit", sol::overload(
-                &channel::emit<>,
+            sol::constructors<channel(job&), channel(job&, priority_t)>(),
+            "emit", sol::overload(
                 &channel::emit<sol::object>,
-                &channel::emit<sol::variadic_args>));
-
-    channel_type.set("broadcast", &channel::broadcast);
-
-    // simple function connection <typename R, typename ...Args>
-    // TODO, possible ambiguity
-    channel_type.set("connect", sol::overload(
-                &channel::connect<void>,
+                &channel::emit<sol::variadic_args>),
+            "connect", sol::overload(
                 &channel::connect<void, sol::object>,
-                &channel::connect<void, sol::variadic_args>));
+                &channel::connect<void, sol::variadic_args>),
+            "broadcast", &channel::broadcast);
+
+        //connect_t<sol::variadic_args> a = &channel::connect;
 
     // listener (no args) binding
     new_usertype<listener<>>("listener"); 
@@ -114,6 +114,7 @@ state::state(flat::state& engine)
     new_usertype<listener<sol::object>>("listener_obj"); 
     // listener (sol::variadic_args) binding
     new_usertype<listener<sol::variadic_args>>("listener_var"); 
+    */
 
     // events binding
     
@@ -135,16 +136,16 @@ state::state(flat::state& engine)
                 )
         );
 
-    channel_type.set((*this)["events.key"], &channel::connect<void, wsdl2::event::key>);
-    channel_type.set((*this)["events.quit"], &channel::connect<void, wsdl2::event::quit>);
-    channel_type.set((*this)["events.mouse.button"], &channel::connect<void, wsdl2::event::mouse::button>);
-    channel_type.set((*this)["events.mouse.motion"], &channel::connect<void, wsdl2::event::mouse::motion>);
-    channel_type.set((*this)["events.mouse.wheel"], &channel::connect<void, wsdl2::event::mouse::wheel>);
-    channel_type.set((*this)["events.window.shown"], &channel::connect<void, wsdl2::event::window::shown>);
-    channel_type.set((*this)["events.window.hidden"], &channel::connect<void, wsdl2::event::window::hidden>);
-    channel_type.set((*this)["events.window.exposed"], &channel::connect<void, wsdl2::event::window::exposed>);
-    channel_type.set((*this)["events.window.moved"], &channel::connect<void, wsdl2::event::window::moved>);
-    channel_type.set((*this)["events.window.resized"], &channel::connect<void, wsdl2::event::window::resized>);
+    //channel_type.set_function("connect_key", static_cast<std::shared_ptr<listener<wsdl2::event::key>> (channel::*)(void (*)(wsdl2::event::key))>(&channel::connect));
+    //channel_type.set_function("connect_quit", static_cast<std::shared_ptr<listener<wsdl2::event::quit>> (channel::*)(void (*)(wsdl2::event::quit))>(&channel::connect));
+    //channel_type.set_function("connect_mouse_button", static_cast<std::shared_ptr<listener<wsdl2::event::mouse::button>> (channel::*)(void (*)(wsdl2::event::mouse::button))>(&channel::connect));
+    //channel_type.set_function("connect_mouse_motion", static_cast<std::shared_ptr<listener<wsdl2::event::mouse::motion>> (channel::*)(void (*)(wsdl2::event::mouse::motion))>(&channel::connect));
+    //channel_type.set_function("connect_mouse_wheel", static_cast<std::shared_ptr<listener<wsdl2::event::mouse::wheel>> (channel::*)(void (*)(wsdl2::event::mouse::wheel))>(&channel::connect));
+    //channel_type.set_function("connect_window_shown", static_cast<std::shared_ptr<listener<wsdl2::event::window::shown>> (channel::*)(void (*)(wsdl2::event::window::shown))>(&channel::connect));
+    //channel_type.set_function("connect_window_hidden", static_cast<std::shared_ptr<listener<wsdl2::event::window::hidden>> (channel::*)(void (*)(wsdl2::event::window::hidden))>(&channel::connect));
+    //channel_type.set_function("connect_window_exposed", static_cast<std::shared_ptr<listener<wsdl2::event::window::exposed>> (channel::*)(void (*)(wsdl2::event::window::exposed))>(&channel::connect));
+    //channel_type.set_function("connect_window_moved", static_cast<std::shared_ptr<listener<wsdl2::event::window::moved>> (channel::*)(void (*)(wsdl2::event::window::moved))>(&channel::connect));
+    //channel_type.set_function("connect_window_resized", static_cast<std::shared_ptr<listener<wsdl2::event::window::resized>> (channel::*)(void (*)(wsdl2::event::window::resized))>(&channel::connect));*/
 
     using namespace wsdl2::event;
 
@@ -237,19 +238,28 @@ state::state(flat::state& engine)
             // TODO, "wheel", 
             );
 
+    new_usertype<flat::state>("flat", sol::no_constructor,
+            "events", &flat::state::events,
+            "update", &flat::state::update,
+            "current_scene", &flat::state::current_scene,
+            "new_scene", &flat::state::new_scene,
+            "push_scene", static_cast<void (flat::state::*)(const flat::scene&)>(&flat::state::push_scene),
+            "pop_scene", &flat::state::pop_scene);
+
     // flatlan state setup
-    (*this)["flat"] = create_table_with(
-            "events", &engine.events,
-            "update", &engine.update);
+    (*this)["flat"] = &engine;
+
+    // bind to default state instance
+    //bind_scene_man(engine);
 }
 
 
 void state::bind_scene_man(flat::state& state)
 {
-    set_function("current_scene", &flat::state::current_scene, flat::state::get());
+    /*set_function("current_scene", &flat::state::current_scene, flat::state::get());
     set_function("new_scene", &flat::state::new_scene, flat::state::get());
     set_function("push_scene", &flat::state::push_scene, flat::state::get());
-    set_function("pop_scene", &flat::state::pop_scene, flat::state::get());
+    set_function("pop_scene", &flat::state::pop_scene, flat::state::get());*/
 }
 
 sol::load_result state::load_script(const std::string& cmd, const std::string& path)
