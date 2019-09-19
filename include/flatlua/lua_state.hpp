@@ -6,6 +6,8 @@
 #include "flatland/core/task.hpp"
 #include "flatland/core/signal.hpp"
 
+#include "flatlua/lua_signal.hpp"
+
 namespace flat {
 
     class state; // flatland state forward declaration
@@ -17,10 +19,13 @@ namespace flat {
 
 class flat::lua::state : private sol::state {
 
-    class lua_general_type;
-
-    template <class T>
-    class lua_type;
+    template<event_id TYPE_ID>
+    inline void bind_event_functor(const char *name)
+    {
+        new_usertype<event_cb<TYPE_ID>>(  
+            name, sol::constructors<event_cb<TYPE_ID>(sol::function)>()
+            );
+    }
 
 public:
 
@@ -86,9 +91,6 @@ private:
 
     // jobs
     std::unordered_map<std::string, flat::core::job> jobs;
-
-    // channels
-    std::unordered_map<std::string, flat::core::channel> channels;
 };
 
 

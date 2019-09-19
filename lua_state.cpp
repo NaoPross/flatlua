@@ -8,6 +8,8 @@ extern "C" {
 #include "wsdl2/video.hpp"
 #include "wsdl2/event.hpp"
 
+#include "flatlua/lua_signal.hpp"
+
 template<typename ...Args>
 using connect_t = std::shared_ptr<flat::core::listener<Args...>> (flat::core::channel::*)(void (*)(Args...));
 
@@ -76,14 +78,12 @@ state::state(flat::state& engine)
 
     using namespace flat::core;
 
-    /*
     //Tasks, jobs, channels, signals interface
 
     // job binding
     auto job_type = new_usertype<job>("job", sol::constructors<job()>());
 
-    // TODO, overloading and template deduction problem
-    //job_type.set("delegate_task", &job::delegate_task);
+    job_type.set("delegate_task", static_cast<std::shared_ptr<task> (job::*)(task::callback, priority_t)>(&job::delegate_task));
     job_type.set("invoke_tasks", &job::invoke_tasks);
     // TODO, operator () overloading
 
@@ -94,16 +94,17 @@ state::state(flat::state& engine)
 
     task_type.set("invoke", &task::operator());
     // TODO, operator () overloading
-   
-    // channel binding 
+  
+    /* channel binding 
     auto channel_type = new_usertype<channel>("channel",
             sol::constructors<channel(job&), channel(job&, priority_t)>(),
-            "emit", sol::overload(
-                &channel::emit<sol::object>,
-                &channel::emit<sol::variadic_args>),
+            //"emit", sol::overload(
+            //    &channel::emit<sol::object>,
+            //    &channel::emit<sol::variadic_args>),
             "connect", sol::overload(
-                &channel::connect<void, sol::object>,
-                &channel::connect<void, sol::variadic_args>),
+                static_cast<connect_t<sol::object>>(&channel::connect)
+                //static_cast<connect_t<sol::variadic_args>>(&channel::connect)
+                ),
             "broadcast", &channel::broadcast);
 
         //connect_t<sol::variadic_args> a = &channel::connect;
@@ -120,34 +121,59 @@ state::state(flat::state& engine)
     
     // enum string events
     (*this)["events"] = create_table_with(
-            "key", "connect_key",
-            "quit", "connect_quit",
+            "key", event_id::key,
+            "quit", event_id::quit,
             "mouse", create_table_with(
-                "button", "connect_mouse_button",
-                "motion", "connect_mouse_motion",
-                "wheel", "connect_mouse_wheel"
+                "button", event_id::mouse_button,
+                "motion", event_id::mouse_motion,
+                "wheel", event_id::mouse_wheel
                 ),
             "window", create_table_with(
-                "shown", "connect_window_shown",
-                "hidden", "connect_window_hidden",
-                "exposed", "connect_window_exposed",
-                "moved", "connect_window_moved",
-                "resized", "connect_window_resized"
+                "shown", event_id::window_shown,
+                "hidden", event_id::window_hidden,
+                "exposed", event_id::window_exposed,
+                "moved", event_id::window_moved,
+                "resized", event_id::window_resized
                 )
         );
 
-    //channel_type.set_function("connect_key", static_cast<std::shared_ptr<listener<wsdl2::event::key>> (channel::*)(void (*)(wsdl2::event::key))>(&channel::connect));
-    //channel_type.set_function("connect_quit", static_cast<std::shared_ptr<listener<wsdl2::event::quit>> (channel::*)(void (*)(wsdl2::event::quit))>(&channel::connect));
-    //channel_type.set_function("connect_mouse_button", static_cast<std::shared_ptr<listener<wsdl2::event::mouse::button>> (channel::*)(void (*)(wsdl2::event::mouse::button))>(&channel::connect));
-    //channel_type.set_function("connect_mouse_motion", static_cast<std::shared_ptr<listener<wsdl2::event::mouse::motion>> (channel::*)(void (*)(wsdl2::event::mouse::motion))>(&channel::connect));
-    //channel_type.set_function("connect_mouse_wheel", static_cast<std::shared_ptr<listener<wsdl2::event::mouse::wheel>> (channel::*)(void (*)(wsdl2::event::mouse::wheel))>(&channel::connect));
-    //channel_type.set_function("connect_window_shown", static_cast<std::shared_ptr<listener<wsdl2::event::window::shown>> (channel::*)(void (*)(wsdl2::event::window::shown))>(&channel::connect));
-    //channel_type.set_function("connect_window_hidden", static_cast<std::shared_ptr<listener<wsdl2::event::window::hidden>> (channel::*)(void (*)(wsdl2::event::window::hidden))>(&channel::connect));
-    //channel_type.set_function("connect_window_exposed", static_cast<std::shared_ptr<listener<wsdl2::event::window::exposed>> (channel::*)(void (*)(wsdl2::event::window::exposed))>(&channel::connect));
-    //channel_type.set_function("connect_window_moved", static_cast<std::shared_ptr<listener<wsdl2::event::window::moved>> (channel::*)(void (*)(wsdl2::event::window::moved))>(&channel::connect));
-    //channel_type.set_function("connect_window_resized", static_cast<std::shared_ptr<listener<wsdl2::event::window::resized>> (channel::*)(void (*)(wsdl2::event::window::resized))>(&channel::connect));*/
-
     using namespace wsdl2::event;
+
+   
+    // bind every functionality for any events 
+    new_usertype<wsdl2::event::key>("key_event", sol::no_constructor,
+            "action", sol::readonly(&wsdl2::event::key::type),
+            //"timestamp", sol::readonly(&key::timestamp),
+            //"window_id", sol::readonly(&key::window_id),
+            //"state", sol::readonly(&key::__state),
+            //"repeat", sol::readonly(&key::repeat),
+            "code", &wsdl2::event::key::code);
+
+    // define a usertype for each callback argument type
+    bind_event_functor<event_id::key>("key_cb");
+    bind_event_functor<event_id::quit>("quit_cb");
+    bind_event_functor<event_id::mouse_button>("mouse_button_cb");
+    bind_event_functor<event_id::mouse_motion>("mouse_motion_cb");
+    bind_event_functor<event_id::mouse_wheel>("mouse_wheel_cb");
+    bind_event_functor<event_id::window_shown>("window_shown_cb");
+    bind_event_functor<event_id::window_hidden>("window_hidden_cb");
+    bind_event_functor<event_id::window_exposed>("window_exposed_cb");
+    bind_event_functor<event_id::window_moved>("window_moved_cb");
+    bind_event_functor<event_id::window_resized>("window_resized_cb");
+
+    set_function("connect", sol::overload(
+            &connect_event<wsdl2::event::key, event_id::key>,
+            &connect_event<wsdl2::event::quit, event_id::quit>,
+            &connect_event<mouse::button, event_id::mouse_button>,
+            &connect_event<mouse::motion, event_id::mouse_motion>,
+            &connect_event<mouse::wheel, event_id::mouse_wheel>,
+            &connect_event<window::shown, event_id::window_shown>,
+            &connect_event<window::hidden, event_id::window_hidden>,
+            &connect_event<window::exposed, event_id::window_exposed>,
+            &connect_event<window::moved, event_id::window_moved>,
+            &connect_event<window::resized, event_id::window_resized>
+           ));
+
 
     // enum keys
     (*this)["keys"] = create_table_with(

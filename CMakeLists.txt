@@ -70,9 +70,8 @@ set_target_properties(flatlua PROPERTIES EXPORT_NAME Flatlua)
 # public headers
 install(
     FILES
-        #${CMAKE_CURRENT_SOURCE_DIR}/include/flatlua/lua_scene.hpp
-        #${CMAKE_CURRENT_SOURCE_DIR}/include/flatlua/lua_sprite.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/include/flatlua/lua_state.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/flatlua/lua_signal.hpp
 
     DESTINATION 
         ${CMAKE_INSTALL_INCLUDEDIR}/flatlua
