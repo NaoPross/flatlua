@@ -162,18 +162,19 @@ state::state(flat::state& engine)
     bind_event_functor<event_id::window_resized>("window_resized_cb");
 
     set_function("connect", sol::overload(
-            &connect_event<wsdl2::event::key, event_id::key>,
-            &connect_event<wsdl2::event::quit, event_id::quit>,
-            &connect_event<mouse::button, event_id::mouse_button>,
-            &connect_event<mouse::motion, event_id::mouse_motion>,
-            &connect_event<mouse::wheel, event_id::mouse_wheel>,
-            &connect_event<window::shown, event_id::window_shown>,
-            &connect_event<window::hidden, event_id::window_hidden>,
-            &connect_event<window::exposed, event_id::window_exposed>,
-            &connect_event<window::moved, event_id::window_moved>,
-            &connect_event<window::resized, event_id::window_resized>
+            &flat::lua::state::connect_event<wsdl2::event::key, event_id::key>,
+            &flat::lua::state::connect_event<wsdl2::event::quit, event_id::quit>,
+            &flat::lua::state::connect_event<mouse::button, event_id::mouse_button>,
+            &flat::lua::state::connect_event<mouse::motion, event_id::mouse_motion>,
+            &flat::lua::state::connect_event<mouse::wheel, event_id::mouse_wheel>,
+            &flat::lua::state::connect_event<window::shown, event_id::window_shown>,
+            &flat::lua::state::connect_event<window::hidden, event_id::window_hidden>,
+            &flat::lua::state::connect_event<window::exposed, event_id::window_exposed>,
+            &flat::lua::state::connect_event<window::moved, event_id::window_moved>,
+            &flat::lua::state::connect_event<window::resized, event_id::window_resized>
            ));
 
+    set_function("disconnect", &flat::lua::state::disconnect_event);
 
     // enum keys
     (*this)["keys"] = create_table_with(
@@ -265,7 +266,6 @@ state::state(flat::state& engine)
             );
 
     new_usertype<flat::state>("flat", sol::no_constructor,
-            "events", &flat::state::events,
             "update", &flat::state::update,
             "current_scene", &flat::state::current_scene,
             "new_scene", &flat::state::new_scene,
@@ -274,38 +274,30 @@ state::state(flat::state& engine)
 
     // flatlan state setup
     (*this)["flat"] = &engine;
+
+    // built-in script loading
+    auto utils_script = load("scripts/utils.lua");
+    auto cmd_script = load("scripts/cmd.lua");
+    auto event_script = load("scripts/event.lua");
+
+// control loading result
+#ifndef NDEBUG
+    if (!utils_script.valid()) {
+        npdebug("Could not load script.lua");
+    }
+
+    if (!cmd_script.valid()) {
+        npdebug("Could not load cmd.lua");
+    }
+
+    if (!event_script.valid()) {
+        npdebug("Could not load event.lua");
+    }
+#endif
+  
+    // execute all
+    utils_script();
+    cmd_script();
+    event_script();
 }
 
-sol::load_result state::load_script(const std::string& cmd, const std::string& path)
-{
-    auto result = this->load_file(path);
-
-    if (result)
-        scripts.insert({path, result});
-
-    return result;
-}
-
-
-sol::load_result state::load_code(const std::string& cmd, const std::string& code)
-{
-    auto result = this->load(code);
-
-    if (result)
-        scripts.insert({cmd, result});
-
-    return result;
-}
-
-void state::rm_cmd(const std::string& cmd)
-{
-    auto it = scripts.find(cmd);
-
-    if (it != scripts.end())
-        scripts.erase(it);
-}
-
-/*void state::exec(std::string&& cmd)
-{
-    channels["cmd"].emit(std::move(cmd));
-}*/

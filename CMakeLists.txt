@@ -116,6 +116,13 @@ install(FILES
     DESTINATION ${INSTALL_CONFIGDIR}
 )
 
+# scripts
+install(
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scripts/
+    DESTINATION ${CMAKE_INSTALL_BINDIR}/flatlua
+)
+
+
 ############################
 # export from the build tree
 export(EXPORT flatlua-targets

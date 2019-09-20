@@ -8,6 +8,9 @@
 
 #include "flatlua/lua_signal.hpp"
 
+//#include <typeinfo>
+#include <map>
+
 namespace flat {
 
     class state; // flatland state forward declaration
@@ -31,66 +34,63 @@ public:
 
     state(flat::state&);
 
-    /*
-     * Binding blocks
-     */
+    // load a file.lua
+    using sol::state::load_file;
 
-    /*
-     * Script loading and running section
-     */
+    // load a 
+    using sol::state::load;
 
-    // run code given by string
-    template <typename ...Args>
-    void run_code(const std::string& code, Args... args)
-    {
-        // TODO, handle exception
-        auto result = sol::state::load(code);
-
-        if (result) // if valid
-            result(args...);
-    }
-
-    // load code given by an external file as a command
-    sol::load_result load_script(const std::string& cmd, const std::string& path);
-
-    // load code given by string as a command
-    sol::load_result load_code(const std::string& cmd, const std::string& code);
-
-    // deactivate a command
-    void rm_cmd(const std::string& cmd);
-
-    // run directly a specific script with the given arguments
-    template <typename ...Args>
-    bool run_script(const std::string& path, Args... args)
-    {
-        auto it = scripts.find(path);
-        bool out(false);
-
-        // TODO, handle exception
-        if (it != scripts.end()) {
-            auto result = ((*it).second)(args...);
-            out = result.valid();
-        }
-
-        return out;
-    }
-
-    /*
-     * Base commands
-     */
-
-    // run an arbitrary command
-    //void exec(std::string&& cmd);
-    
+    // allow to define a new usertype
     using sol::state::new_usertype;
+
+    // allow to set/get objects in lua
+    using sol::state::set;
+    using sol::state::set_function;
+    using sol::state::get;
 
 private:
 
-    // scripts loaded by files
-    std::unordered_map<std::string, sol::load_result> scripts;
-
-    // jobs
+    // jobs collection
     std::unordered_map<std::string, flat::core::job> jobs;
+
+    /*
+     * Map each event to control memory management in lua.
+     * Refer to a bind using a string is not the lighest way
+     * but it's the safest one, because the lua reference can
+     * be too easily lost, causing the event to be bound infinitely
+     * or to provoke a leak of memory.
+     */    
+    std::map<std::string, event_variant> event_map; 
+
+    // function needed to connect events safely
+    template<typename T, event_id TYPE_ID>
+    bool connect_event(const std::string& name, event_cb<TYPE_ID> ev)
+    {
+        // check for name identifier existance
+        auto it = event_map.find(name);
+
+        if (it == event_map.end())
+            return false;
+
+        // TODO, magic and not safe at all
+        // A mali estremi, estremi rimedi
+        event_bind<T> ptr = flat::state::get().events.connect<void, T>(
+            [&ev](T ev_tab) -> void {
+                ev.callback(ev_tab);
+            });
+
+        event_map.insert({name, event_variant(std::move(ptr))});
+
+        return true;
+    }
+
+    // function needed to connect events safely
+    void disconnect_event(const std::string& name)
+    {
+        event_map.erase(name);
+    }
+
+    // TODO, signal and channel database
 };
 
 

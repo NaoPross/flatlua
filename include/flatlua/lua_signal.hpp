@@ -30,17 +30,20 @@ struct event_cb
     static constexpr event_id id = TYPE_ID;
     sol::function callback;
 };
-              
-template<typename T, event_id TYPE_ID>
-std::shared_ptr<flat::core::listener<T>> connect_event(event_cb<TYPE_ID> ev)
-{
-    // TODO, magic and not safe at all
-    // A mali estremi, estremi rimedi
-    //std::shared_ptr<flat::core::listener<T>> out =
-    return flat::state::get().events.connect<void, T>(
-            [&ev](T ev_tab) -> void {
-                ev.callback(ev_tab);
-            });
-}
 
+template<typename T>
+using event_bind = std::shared_ptr<flat::core::listener<T>>;
+
+using event_variant = std::variant<
+                        event_bind<wsdl2::event::key>,
+                        event_bind<wsdl2::event::quit>,
+                        event_bind<wsdl2::event::mouse::button>,
+                        event_bind<wsdl2::event::mouse::motion>,
+                        event_bind<wsdl2::event::mouse::wheel>,
+                        event_bind<wsdl2::event::window::shown>,
+                        event_bind<wsdl2::event::window::hidden>,
+                        event_bind<wsdl2::event::window::exposed>,
+                        event_bind<wsdl2::event::window::moved>,
+                        event_bind<wsdl2::event::window::resized>
+                        >;
 }
