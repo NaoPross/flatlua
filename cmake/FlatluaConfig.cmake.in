@@ -5,7 +5,7 @@ include(CMakeFindDependencyMacro)
 list(APPEND CMAKE_MODULE_PATH ${FLATLUA_CMAKE_DIR})
 find_dependency(MM REQUIRED)
 find_dependency(WSDL2 REQUIRED)
-find_dependency(FLATLAND REQUIRED)
+find_dependency(Flatland REQUIRED)
 list(REMOVE_AT CMAKE_MODULE_PATH -1)
 
 if(NOT TARGET Flatlua::Flatlua)

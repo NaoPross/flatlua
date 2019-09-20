@@ -6,6 +6,8 @@ project(
 
 include(FindLua)
 include(GNUInstallDirs) # for install
+
+list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_SOURCE_DIR}/cmake)
   
 find_package(Flatland 0.1 REQUIRED)
 find_package(sol2 3.0 REQUIRED)
@@ -14,6 +16,8 @@ find_package(Lua REQUIRED)
 add_library(flatlua #SHARED
      ${CMAKE_CURRENT_SOURCE_DIR}/lua_state.cpp
 )
+
+add_library(Flatlua::flatlua ALIAS flatlua)
  
 target_compile_options(flatlua
     PRIVATE 
@@ -34,8 +38,23 @@ target_compile_features(flatlua
         cxx_std_17
 )
 
+# find dependencies
+find_package(MM 0.1 REQUIRED
+                HINTS $<$<CMAKE_SYSTEM:Linux>:/usr/local/lib/>)
+
+find_package(WSDL2 0.1 REQUIRED
+                HINTS $<$<CMAKE_SYSTEM:Linux>:/usr/local/lib/>)
+
+find_package(Flatland 0.1 REQUIRED
+                HINTS $<$<CMAKE_SYSTEM:Linux>:/usr/local/lib/>)
+
+find_package(sol2 3.0 REQUIRED
+                HINTS $<$<CMAKE_SYSTEM:Linux>:/usr/local/lib/>)
+
 target_link_libraries(flatlua
     PRIVATE
+        MM::MM
+        WSDL2::WSDL2
         Flatland::Flatland
         sol2::sol2
         ${LUA_LIBRARIES}
@@ -47,6 +66,11 @@ target_include_directories(flatlua
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/
+)
+
+target_compile_definitions(flatlua
+    PRIVATE
+        $<$<CONFIG:Debug>:DEBUG>
 )
 
 target_compile_definitions(flatlua
