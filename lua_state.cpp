@@ -16,17 +16,27 @@ extern "C" {
 template<typename ...Args>
 using connect_t = std::shared_ptr<flat::core::listener<Args...>> (flat::core::channel::*)(void (*)(Args...));
 
-using namespace flat::lua;
-
 //resources
-build::resource r_utils = LOAD_RESOURCE(scripts_utils_lua);
-build::resource r_cmd = LOAD_RESOURCE(scripts_cmd_lua);
-build::resource r_events = LOAD_RESOURCE(scripts_events_lua);
+const build::resource r_utils(LOAD_RESOURCE(scripts_utils_lua));
+const build::resource r_cmd(LOAD_RESOURCE(scripts_cmd_lua));
+const build::resource r_events(LOAD_RESOURCE(scripts_events_lua));
+
+using namespace flat::lua;
 
 state::state(flat::state& engine)
 {
     // TODO, evaluate libraries to open
     open_libraries(sol::lib::base);
+
+    register_module("utils", r_utils);
+    register_module("cmd", r_cmd);
+    register_module("events", r_events);
+
+    /*
+     * Embedded module requiring
+     */
+
+    this->set_function("require_symbol", &state::require, this);
 
     /*
      * Texture binding
@@ -169,20 +179,24 @@ state::state(flat::state& engine)
     bind_event_functor<event_id::window_moved>("window_moved_cb");
     bind_event_functor<event_id::window_resized>("window_resized_cb");
 
-    set_function("connect", sol::overload(
-            &flat::lua::state::connect_event<wsdl2::event::key, event_id::key>,
-            &flat::lua::state::connect_event<wsdl2::event::quit, event_id::quit>,
-            &flat::lua::state::connect_event<mouse::button, event_id::mouse_button>,
-            &flat::lua::state::connect_event<mouse::motion, event_id::mouse_motion>,
-            &flat::lua::state::connect_event<mouse::wheel, event_id::mouse_wheel>,
-            &flat::lua::state::connect_event<window::shown, event_id::window_shown>,
-            &flat::lua::state::connect_event<window::hidden, event_id::window_hidden>,
-            &flat::lua::state::connect_event<window::exposed, event_id::window_exposed>,
-            &flat::lua::state::connect_event<window::moved, event_id::window_moved>,
-            &flat::lua::state::connect_event<window::resized, event_id::window_resized>
-           ));
+#define CONNECT_LAMBDA(T, TYPE_ID) \
+    [this](const std::string& name, event_cb<TYPE_ID> ev) { \
+        return this->connect_event<T, TYPE_ID>(name, ev);         \
+    }
+this->set_function("connect", sol::overload(
+        CONNECT_LAMBDA(wsdl2::event::key, event_id::key), 
+        CONNECT_LAMBDA(wsdl2::event::quit, event_id::quit), 
+        CONNECT_LAMBDA(mouse::button, event_id::mouse_button), 
+        CONNECT_LAMBDA(mouse::motion, event_id::mouse_motion), 
+        CONNECT_LAMBDA(mouse::wheel, event_id::mouse_wheel), 
+        CONNECT_LAMBDA(window::shown, event_id::window_shown), 
+        CONNECT_LAMBDA(window::hidden, event_id::window_hidden), 
+        CONNECT_LAMBDA(window::exposed, event_id::window_exposed), 
+        CONNECT_LAMBDA(window::moved, event_id::window_moved), 
+        CONNECT_LAMBDA(window::resized, event_id::window_resized)
+       ));
 
-    set_function("disconnect", &flat::lua::state::disconnect_event);
+    this->set_function("disconnect", &flat::lua::state::disconnect_event, this);
 
     // enum keys
     (*this)["keys"] = create_table_with(
@@ -273,38 +287,49 @@ state::state(flat::state& engine)
             // TODO, "wheel", 
             );
 
-    new_usertype<flat::state>("flat", sol::no_constructor,
+    new_usertype<flat::state>("flat_unique", sol::no_constructor,
             "update", &flat::state::update,
             "current_scene", &flat::state::current_scene,
             "new_scene", &flat::state::new_scene,
             "push_scene", static_cast<void (flat::state::*)(const flat::scene&)>(&flat::state::push_scene),
-            "pop_scene", &flat::state::pop_scene);
+            "pop_scene", &flat::state::pop_scene,
+            "quit", &flat::state::quit);
 
     // flatlan state setup
-    (*this)["flat"] = &engine;
-
-    // built-in script loading
-    // TODO, give the possibility to chose what to enable
-    
-    auto utils_script = safe_script(r_utils.str(),
-        [](lua_State*, sol::protected_function_result pfr) {
-            sol::error err = pfr;
-            npdebug("Could not load utils.lua: ", err.what());   
-            return pfr;
-        });
-
-    auto cmd_script = safe_script(r_cmd.str(),
-        [](lua_State*, sol::protected_function_result pfr) {
-            sol::error err = pfr;
-            npdebug("Could not load cmd.lua: ", err.what());   
-            return pfr;
-        });
-
-    auto event_script = safe_script(r_events.str(),
-        [](lua_State*, sol::protected_function_result pfr) {
-            sol::error err = pfr;
-            npdebug("Could not load events.lua: ", err.what());   
-            return pfr;
-        });
+    set("flat", &engine);
 }
 
+sol::object state::require(const std::string& name)
+{
+    auto it = modules.find(name);
+    sol::object result(sol::lua_nil);
+
+    if (it != modules.end()) {
+        result = safe_script((*it).second.str(),
+        [&name](lua_State*, sol::protected_function_result pfr) {
+            sol::error err = pfr;
+            npdebug("Could not load module ", name, ": " ,err.what());   
+            return pfr;
+        });
+    }
+
+    return result;
+}
+
+void state::register_module(const std::string& name, const build::resource& resource)
+{
+    modules.insert({name, resource});
+}
+
+void state::unregister_module(const std::string& name)
+{
+    modules.erase(name);
+}
+
+
+event_variant state::get_event(const std::string& name)
+{
+    auto it = event_map.find(name);
+
+    return (it != event_map.end()) ? (*it).second : std::shared_ptr<bool>(nullptr);
+}

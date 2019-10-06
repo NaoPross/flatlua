@@ -1,0 +1,12 @@
+build
+flatland
+libmm
+libwsdl2
+flatlua
+lua
+sol2
+
+TAGS
+tags
+
+**/*.swp

@@ -1,4 +1,4 @@
-
+local events_lib = {}
 local event_enum = {}
 
 event_enum[events.key] = key_cb
@@ -11,6 +11,7 @@ event_enum[events.window.hidden] = window_hidden_cb
 event_enum[events.window.exposed] = window_exposed_cb
 event_enum[events.window.moved] = window_moved_cb
 event_enum[events.window.resized] = window_resized_cb
+event_enum.size = 10
 
 -- Alias to the connect function taking
 -- a different type of events.
@@ -19,22 +20,24 @@ event_enum[events.window.resized] = window_resized_cb
 --
 -- For more information see 
 -- the events enumerator from the c++ binding
-function connect(name, event_type, callback)
+function events_lib.connect(name, event_type, callback)
 
     if callback == nil or event_type == nil then
         return nil
     end
-
-    local args = callback.Arguments
+    
+    --[[ local args = callback.Arguments
 
     if args == nil then
         return nil
-    end
+    end --]]
 
-    if event_type < 0 or event_type >= table.getn(event_enum) then
+    if event_type < 0 or event_type >= event_enum.size then
         error("Event type " .. event_type .. " not supported")
     end
    
     -- use the right constructor to bind the event correctly
     return connect(name, event_enum[event_type].new(callback))
 end
+
+return events_lib

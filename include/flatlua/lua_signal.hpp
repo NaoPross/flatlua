@@ -44,6 +44,7 @@ using event_variant = std::variant<
                         event_bind<wsdl2::event::window::hidden>,
                         event_bind<wsdl2::event::window::exposed>,
                         event_bind<wsdl2::event::window::moved>,
-                        event_bind<wsdl2::event::window::resized>
+                        event_bind<wsdl2::event::window::resized>,
+                        std::shared_ptr<bool> // for nullptr
                         >;
 }

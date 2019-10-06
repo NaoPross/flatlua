@@ -1,4 +1,6 @@
-require "utils" -- starts_with
+local utils = require_symbol("utils") -- starts_with
+
+local cmdlib = {}
 
 -- Metatable Cmd
 local Cmd = {}
@@ -18,7 +20,7 @@ local cmd_list = {}
 -- execute an existing command
 -- throws an error in case of non-existing command or 
 -- internal error by the callback
-function exec(cmd, ...)
+function cmdlib.exec(cmd, ...)
     local command = cmd_list[cmd]
 
     if command == nil then
@@ -43,8 +45,7 @@ end
 -- ...: possible aliases
 --
 -- throws an error in case of already existing command cmd
-function new_cmd(cmd, desc, cb, ...)
-
+function cmdlib.new_cmd(cmd, desc, cb, ...)
     if cmd_list[cmd] ~= nil then
         error("Already existing command: " .. cmd)
     end
@@ -64,7 +65,7 @@ function new_cmd(cmd, desc, cb, ...)
 end
 
 -- auto-complete, it returns a list of possibilities to complete the command
-function auto_cmplt(text)
+function cmdlib.auto_cmplt(text)
     local cmplt = {}
 
     for cmd, tab in pairs(cmd_list) do
@@ -87,15 +88,16 @@ end
 -- basic command binding
 --
 
-new_cmd("quit",
+cmdlib.new_cmd("quit",
     "Quit the game",
     function ()
         quit() -- from flatland
     end)
 
-new_cmd("restart",
+cmdlib.new_cmd("restart",
     "Restart the game",
     function ()
         restart() -- from flatland
     end)
 
+return cmdlib

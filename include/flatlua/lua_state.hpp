@@ -7,6 +7,7 @@
 #include "flatland/core/signal.hpp"
 
 #include "flatlua/lua_signal.hpp"
+#include "flatlua/resources.hpp"
 
 //#include <typeinfo>
 #include <map>
@@ -50,7 +51,21 @@ public:
     using sol::state::set_function;
     using sol::state::get;
 
+    sol::object require(const std::string& name);
+    void register_module(const std::string& name, const build::resource&);
+    void unregister_module(const std::string& name);
+
+    event_variant get_event(const std::string& name);
+
 private:
+
+    // modules collection
+    std::unordered_map<std::string, build::resource> modules;
+
+    // specific modules
+    //static const build::resource r_utils;
+    //static const build::resource r_cmd;
+    //static const build::resource r_events;
 
     // jobs collection
     std::unordered_map<std::string, flat::core::job> jobs;
@@ -71,17 +86,19 @@ private:
         // check for name identifier existance
         auto it = event_map.find(name);
 
-        if (it == event_map.end())
+        if (it != event_map.end())
             return false;
 
-        // TODO, magic and not safe at all
+        // TODO, magic and not safe at all, infatti crasha....
         // A mali estremi, estremi rimedi
         event_bind<T> ptr = flat::state::get().events.connect<void, T>(
             [&ev](T ev_tab) -> void {
+                npdebug("Time to be called: ", &ev_tab)
+                // TODO, SIGSEV problematic
                 ev.callback(ev_tab);
             });
 
-        event_map.insert({name, event_variant(std::move(ptr))});
+        event_map.insert({name, event_variant(ptr)});
 
         return true;
     }
