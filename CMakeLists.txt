@@ -13,8 +13,37 @@ find_package(Flatland 0.1 REQUIRED)
 find_package(sol2 3.0 REQUIRED)
 find_package(Lua REQUIRED)
 
+# Compilation step for static resources
+function(add_resources out_var)
+  set(result)
+  foreach(in_f ${ARGN})
+    file(RELATIVE_PATH src_f ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${in_f})
+    set(out_f "${PROJECT_BINARY_DIR}/${in_f}.o")
+    add_custom_command(OUTPUT ${out_f}
+      COMMAND ld -r -b binary -o ${out_f} ${src_f}
+      DEPENDS ${in_f}
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      COMMENT "Building resource object ${out_f}"
+      VERBATIM
+      )
+    list(APPEND result ${out_f})
+  endforeach()
+  set(${out_var} "${result}" PARENT_SCOPE)
+endfunction()
+
+# A simple program that uses resources
+add_resources(SCRIPTS scripts/cmd.lua scripts/events.lua scripts/utils.lua)
+
+message("Embedding resources:")
+foreach(script ${SCRIPTS})
+    message(${script})
+endforeach()
+
+set(CMAKE_VERBOSE_MAKEFILE ON)
+
 add_library(flatlua #SHARED
      ${CMAKE_CURRENT_SOURCE_DIR}/lua_state.cpp
+     ${SCRIPTS}
 )
 
 add_library(Flatlua::flatlua ALIAS flatlua)
@@ -96,17 +125,19 @@ install(
     FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/include/flatlua/lua_state.hpp
         ${CMAKE_CURRENT_SOURCE_DIR}/include/flatlua/lua_signal.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/flatlua/resources.hpp
 
     DESTINATION 
         ${CMAKE_INSTALL_INCLUDEDIR}/flatlua
 )
 
+#[[
 install(
     DIRECTORY 
         ${CMAKE_CURRENT_SOURCE_DIR}/include/flatlua/
     DESTINATION
         ${CMAKE_INSTALL_INCLUDEDIR}
-)
+)]]
 
 # export targets
 install(EXPORT flatlua-targets
@@ -140,12 +171,11 @@ install(FILES
     DESTINATION ${INSTALL_CONFIGDIR}
 )
 
-# scripts
+#[[ scripts
 install(
     DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scripts/
     DESTINATION ${CMAKE_INSTALL_BINDIR}/flatlua
-)
-
+)]]
 
 ############################
 # export from the build tree

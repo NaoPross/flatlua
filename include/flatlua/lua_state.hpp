@@ -39,6 +39,8 @@ public:
 
     // load a 
     using sol::state::load;
+    using sol::state::script;
+    using sol::state::safe_script;
 
     // allow to define a new usertype
     using sol::state::new_usertype;

@@ -10,10 +10,18 @@ extern "C" {
 
 #include "flatlua/lua_signal.hpp"
 
+#include <unistd.h>
+#include "flatlua/resources.hpp"
+
 template<typename ...Args>
 using connect_t = std::shared_ptr<flat::core::listener<Args...>> (flat::core::channel::*)(void (*)(Args...));
 
 using namespace flat::lua;
+
+//resources
+build::resource r_utils = LOAD_RESOURCE(scripts_utils_lua);
+build::resource r_cmd = LOAD_RESOURCE(scripts_cmd_lua);
+build::resource r_events = LOAD_RESOURCE(scripts_events_lua);
 
 state::state(flat::state& engine)
 {
@@ -276,28 +284,27 @@ state::state(flat::state& engine)
     (*this)["flat"] = &engine;
 
     // built-in script loading
-    auto utils_script = load("scripts/utils.lua");
-    auto cmd_script = load("scripts/cmd.lua");
-    auto event_script = load("scripts/event.lua");
+    // TODO, give the possibility to chose what to enable
+    
+    auto utils_script = safe_script(r_utils.str(),
+        [](lua_State*, sol::protected_function_result pfr) {
+            sol::error err = pfr;
+            npdebug("Could not load utils.lua: ", err.what());   
+            return pfr;
+        });
 
-// control loading result
-#ifndef NDEBUG
-    if (!utils_script.valid()) {
-        npdebug("Could not load script.lua");
-    }
+    auto cmd_script = safe_script(r_cmd.str(),
+        [](lua_State*, sol::protected_function_result pfr) {
+            sol::error err = pfr;
+            npdebug("Could not load cmd.lua: ", err.what());   
+            return pfr;
+        });
 
-    if (!cmd_script.valid()) {
-        npdebug("Could not load cmd.lua");
-    }
-
-    if (!event_script.valid()) {
-        npdebug("Could not load event.lua");
-    }
-#endif
-  
-    // execute all
-    utils_script();
-    cmd_script();
-    event_script();
+    auto event_script = safe_script(r_events.str(),
+        [](lua_State*, sol::protected_function_result pfr) {
+            sol::error err = pfr;
+            npdebug("Could not load events.lua: ", err.what());   
+            return pfr;
+        });
 }
 
