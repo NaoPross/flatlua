@@ -35,6 +35,8 @@ public:
 
     state(flat::state&);
 
+    using sol::state::open_libraries;
+
     // load a file.lua
     using sol::state::load_file;
 
@@ -89,13 +91,13 @@ private:
         if (it != event_map.end())
             return false;
 
-        // TODO, magic and not safe at all, infatti crasha....
-        // A mali estremi, estremi rimedi
         event_bind<T> ptr = flat::state::get().events.connect<void, T>(
-            [&ev](T ev_tab) -> void {
-                npdebug("Time to be called: ", &ev_tab)
-                // TODO, SIGSEV problematic
-                ev.callback(ev_tab);
+            [ev](T ev_tab) -> void {
+                if (ev.callback.valid())
+                    ev.callback(ev_tab);
+                else {
+                    npdebug("Invalid reference to lua function: ", &ev_tab)
+                }
             });
 
         event_map.insert({name, event_variant(ptr)});

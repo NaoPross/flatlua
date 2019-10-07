@@ -202,7 +202,8 @@ this->set_function("connect", sol::overload(
     (*this)["keys"] = create_table_with(
                 "action", create_table_with(
                     "up", key::action::up,
-                    "down", key::action::down),
+                    "down", key::action::down
+                    ),
                 "no_0", SDLK_0,
                 "no_1", SDLK_1,
                 "no_2", SDLK_2,
